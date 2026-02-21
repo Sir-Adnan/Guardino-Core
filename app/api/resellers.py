@@ -8,6 +8,7 @@ from app.core.security import get_password_hash
 from app.models import Reseller, NodeAllocation
 from app.api.deps import get_current_reseller
 from app.schemas.admin import ResellerCreate, NodeAllocationCreate
+from app.models import TransactionLog
 
 router = APIRouter(prefix="/api/v1/resellers", tags=["Resellers Management"])
 
@@ -62,3 +63,28 @@ async def allocate_node_to_reseller(
     db.add(allocation)
     await db.commit()
     return {"message": "سرور با موفقیت به نماینده تخصیص داده شد."}
+    @router.get("/history")
+async def get_financial_history(
+    current_reseller: Reseller = Depends(get_current_reseller),
+    db: AsyncSession = Depends(get_db)
+):
+    """دریافت ۵۰ تراکنش آخر نماینده"""
+    query = await db.execute(
+        select(TransactionLog)
+        .where(TransactionLog.reseller_id == current_reseller.id)
+        .order_by(TransactionLog.created_at.desc())
+        .limit(50)
+    )
+    logs = query.scalars().all()
+    
+    result = []
+    for log in logs:
+        result.append({
+            "id": log.id,
+            "amount": log.amount,
+            "type": log.transaction_type,
+            "description": log.description,
+            "date": log.created_at.isoformat()
+        })
+        
+    return {"history": result}
