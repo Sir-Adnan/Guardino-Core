@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد | گاردینو پرو</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="nav-brand">GUARDINO</a>
+    <div class="hamburger" onclick="toggleMenu()">☰</div>
+    <div class="nav-menu" id="navMenu">
+        <a href="index.html">🏠 داشبورد</a>
+        <a href="users.html">👥 مدیریت کاربران</a>
+        <a href="#" onclick="logout()">🚪 خروج</a>
+    </div>
+</nav>
+
+<div class="container" style="padding-top: 30px;">
+    <div class="card" style="background: linear-gradient(135deg, var(--primary), #8b5cf6); color: white; border: none;">
+        <h2 style="margin-top: 0;">خوش آمدید! 🚀</h2>
+        <p>موجودی کیف پول شما:</p>
+        <h1 id="walletBalance" style="margin: 10px 0; font-size: 2.5rem;">در حال دریافت...</h1>
+    </div>
+
+    <div class="action-container" style="text-align: center; margin-top: 40px;">
+        <h2>مدیریت اشتراک‌ها</h2>
+        <p>برای ایجاد اکانت جدید ترکیبی (مرزبان + پاسارگاد + وایرگارد) روی دکمه زیر کلیک کنید.</p>
+        <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+            <a href="users.html" class="btn-main" style="text-decoration: none;">➕ ساخت کاربر جدید</a>
+        </div>
+    </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+    // 1. بررسی لاگین بودن کاربر
+    const token = localStorage.getItem("guardino_token");
+    if (!token) {
+        window.location.href = "login.html";
+    }
+
+    // 2. نمایش موجودی (از حافظه لوکال که در زمان لاگین ذخیره شد می‌خوانیم)
+    const balance = localStorage.getItem("reseller_balance") || 0;
+    document.getElementById("walletBalance").innerText = Number(balance).toLocaleString("fa-IR") + " تومان";
+
+    // 3. تابع خروج
+    function logout() {
+        localStorage.clear();
+        window.location.href = "login.html";
+    }
+</script>
+</body>
+</html>
