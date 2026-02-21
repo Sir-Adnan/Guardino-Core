@@ -1,0 +1,52 @@
+/* مسیر: assets/css/main.css */
+:root {
+    --primary: #ef4444; 
+    --bg: #f9fafb; 
+    --card: #ffffff; 
+    --text: #111827; 
+    --border: #e5e7eb;
+}
+
+body.dark-mode {
+    --bg: #0f172a; 
+    --card: #1e293b; 
+    --text: #f8fafc; 
+    --border: #334155;
+}
+
+body { 
+    background: var(--bg); 
+    color: var(--text); 
+    font-family: Vazirmatn, sans-serif; 
+    margin: 0; 
+    transition: background-color 0.3s, color 0.3s; 
+    padding-top: 70px; 
+}
+
+/* Navbar */
+.navbar { background: var(--card); height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 1.5rem; position: fixed; top: 0; width: 100%; z-index: 1000; box-sizing: border-box; border-bottom: 2px solid var(--primary); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: 0.3s; }
+.nav-brand { font-weight: 900; font-size: 1.4rem; color: var(--primary); text-decoration: none; }
+
+.nav-menu { display: flex; gap: 20px; align-items: center; }
+.nav-menu a { text-decoration: none; color: var(--text); font-weight: 700; font-size: 0.9rem; transition: 0.3s; }
+.nav-menu a:hover { color: var(--primary); }
+
+.hamburger { display: none; cursor: pointer; font-size: 1.8rem; color: var(--primary); }
+
+/* Dropdown */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-content { display: none; position: absolute; left: 0; background: var(--card); min-width: 180px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); border-radius: 12px; padding: 15px; z-index: 1001; border: 1px solid var(--border); }
+.dropdown:hover .dropdown-content { display: block; }
+
+.color-opt { width: 25px; height: 25px; border-radius: 50%; display: inline-block; margin: 5px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+.color-opt:hover { transform: scale(1.2); border-color: var(--text); }
+
+/* Layout */
+.container { padding: 1.5rem; max-width: 1200px; margin: auto; }
+
+/* Mobile Navbar */
+@media (max-width: 850px) {
+    .nav-menu { display: none; flex-direction: column; position: absolute; top: 70px; right: 0; width: 100%; background: var(--card); padding: 20px; border-bottom: 3px solid var(--primary); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+    .nav-menu.active { display: flex; }
+    .hamburger { display: block; }
+}
