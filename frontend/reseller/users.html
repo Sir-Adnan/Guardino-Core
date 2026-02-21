@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت کاربران | گاردینو پرو</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="nav-brand">GUARDINO</a>
+    <div class="nav-menu">
+        <a href="index.html">🏠 داشبورد</a>
+        <a href="users.html" style="color: var(--primary);">👥 مدیریت کاربران</a>
+    </div>
+</nav>
+
+<div class="container" style="padding-top: 20px;">
+    
+    <div class="card">
+        <div class="section-title">✨ ساخت اشتراک جدید (Smart Routing)</div>
+        <form id="createUserForm">
+            <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label class="form-label">نام کاربری (انگلیسی)</label>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="username" class="form-control" required>
+                        <button type="button" class="btn-main btn-gray" onclick="genU()" style="padding: 0 10px;">🎲</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">حجم (گیگابایت - 0 نامحدود)</label>
+                    <input type="number" id="dataLimit" class="form-control" value="50" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">زمان (روز - 0 نامحدود)</label>
+                    <input type="number" id="expireDays" class="form-control" value="30" required>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label class="form-label">انتخاب سرورها (ترکیب لینک ساب)</label>
+                <div id="nodesContainer" style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);">
+                    <span style="opacity: 0.6; font-size: 0.85rem;">در حال دریافت لیست سرورها...</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-main" id="submitBtn" style="margin-top: 15px; width: 100%;">🚀 ایجاد و دریافت لینک ساب مستر</button>
+        </form>
+    </div>
+
+    <div id="resultCard" class="card" style="display: none; border: 2px solid #10b981;">
+        <div class="section-title" style="color: #10b981;">✅ کاربر با موفقیت ساخته شد!</div>
+        <p id="costDisplay" style="font-weight: bold;"></p>
+        <div class="input-flex" style="display: flex; gap: 10px; margin-top: 10px;">
+            <input type="text" id="masterSubLink" class="form-control" readonly style="direction: ltr; text-align: left;">
+            <button type="button" class="btn-main" onclick="copyMasterLink()">🔗 کپی لینک</button>
+        </div>
+    </div>
+
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+    const token = localStorage.getItem("guardino_token");
+    if (!token) window.location.href = "login.html";
+
+    // 1. دریافت لیست سرورهای مجاز برای این نماینده از پایتون
+    async function loadAvailableNodes() {
+        try {
+            const response = await fetch("http://localhost:8000/api/v1/nodes/list", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            
+            const container = document.getElementById("nodesContainer");
+            container.innerHTML = ""; // پاک کردن متن "در حال دریافت..."
+
+            if(data.nodes && data.nodes.length > 0) {
+                data.nodes.forEach(node => {
+                    // ساخت چک‌باکس برای هر سرور
+                    container.innerHTML += `
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; background: var(--card); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);">
+                            <input type="checkbox" name="selectedNodes" value="${node.id}" checked>
+                            <span style="font-size: 0.85rem; font-weight: bold;">${node.display_name}</span>
+                            <span style="font-size: 0.7rem; opacity: 0.7;">(${node.panel_type})</span>
+                        </label>
+                    `;
+                });
+            } else {
+                container.innerHTML = "<span style='color: red;'>شما به هیچ سروری دسترسی ندارید!</span>";
+            }
+        } catch (e) {
+            document.getElementById("nodesContainer").innerHTML = "خطا در ارتباط با سرور مرکزی.";
+        }
+    }
+
+    // 2. هندل کردن فرم ساخت کاربر (ارسال به موتور پایتون)
+    document.getElementById('createUserForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // جمع‌آوری آیدی سرورهایی که تیک خورده‌اند
+        const checkboxes = document.querySelectorAll('input[name="selectedNodes"]:checked');
+        const nodeIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        
+        if (nodeIds.length === 0) {
+            showToast("لطفا حداقل یک سرور را انتخاب کنید!", "danger");
+            return;
+        }
+
+        const payload = {
+            username: document.getElementById('username').value,
+            data_limit_gb: parseFloat(document.getElementById('dataLimit').value),
+            expire_days: parseInt(document.getElementById('expireDays').value),
+            node_ids: nodeIds
+        };
+
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "⏳ در حال ساخت همزمان (Syncing)...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch("http://localhost:8000/api/v1/users/create", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showToast("کاربر با موفقیت در شبکه‌ها ساخته شد!", "success");
+                
+                // نمایش کارت لینک ساب
+                document.getElementById('resultCard').style.display = 'block';
+                document.getElementById('masterSubLink').value = data.sub_link;
+                document.getElementById('costDisplay').innerText = `مبلغ کسر شده از کیف پول: ${data.total_cost.toLocaleString()} تومان`;
+                
+                // آپدیت موجودی ذخیره شده
+                let currentBal = parseInt(localStorage.getItem("reseller_balance"));
+                localStorage.setItem("reseller_balance", currentBal - data.total_cost);
+
+            } else {
+                showToast(data.detail || "خطا در ساخت کاربر", "danger");
+            }
+        } catch (err) {
+            showToast("خطا در برقراری ارتباط با هسته مرکزی گاردینو", "danger");
+        } finally {
+            btn.innerText = "🚀 ایجاد و دریافت لینک ساب مستر";
+            btn.disabled = false;
+        }
+    });
+
+    // تابع کمکی برای کپی کردن لینک ساب
+    function copyMasterLink() {
+        const link = document.getElementById('masterSubLink').value;
+        navigator.clipboard.writeText(link).then(() => {
+            showToast("✅ لینک ساب گاردینو کپی شد!");
+        });
+    }
+
+    // تولید نام کاربری رندوم
+    function genU() {
+        document.getElementById('username').value = "user_" + Math.random().toString(36).substr(2, 6);
+    }
+
+    // اجرای تابع لود سرورها هنگام باز شدن صفحه
+    loadAvailableNodes();
+</script>
+</body>
+</html>
