@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدیریت ارشد | گاردینو پرو</title>
+    <title>مدیریت سرورها | گاردینو پرو</title>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
     <link rel="stylesheet" href="../assets/css/main.css">
     <link rel="stylesheet" href="../assets/css/components.css">
     <style>
         .admin-nav { background: #1e293b; border-bottom: 2px solid #3b82f6; }
+        body.dark-mode .admin-nav { background: #0f172a; }
         .admin-nav a { color: #f8fafc; }
     </style>
 </head>
@@ -16,9 +17,27 @@
 
 <nav class="navbar admin-nav">
     <a href="index.html" class="nav-brand" style="color: #3b82f6;">👑 GUARDINO CORE</a>
-    <div class="nav-menu">
+    <div class="hamburger" onclick="toggleMenu()">☰</div>
+    <div class="nav-menu" id="navMenu">
         <a href="index.html" style="color: #3b82f6;">🌍 شبکه سرورها (Nodes)</a>
         <a href="resellers.html">🏢 مدیریت نمایندگان</a>
+        
+        <div class="dropdown">
+            <span style="cursor:pointer; font-weight:bold; color: #3b82f6;">⚙️ تنظیمات ظاهر</span>
+            <div class="dropdown-content">
+                <div style="margin-bottom:10px; font-size:0.8rem; font-weight:bold;">حالت نمایش:</div>
+                <button onclick="toggleTheme()" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; font-family:inherit;">🌓 روز / شب</button>
+                <hr style="border:0; border-top:1px solid var(--border); margin:15px 0;">
+                <div style="margin-bottom:10px; font-size:0.8rem; font-weight:bold;">رنگ برندینگ:</div>
+                <div style="display:flex; flex-wrap:wrap; justify-content:center;">
+                    <div class="color-opt" style="background:#ef4444" onclick="changeColor('#ef4444')"></div>
+                    <div class="color-opt" style="background:#3b82f6" onclick="changeColor('#3b82f6')"></div>
+                    <div class="color-opt" style="background:#10b981" onclick="changeColor('#10b981')"></div>
+                    <div class="color-opt" style="background:#8b5cf6" onclick="changeColor('#8b5cf6')"></div>
+                </div>
+            </div>
+        </div>
+        
         <a href="#" onclick="logout()">🚪 خروج</a>
     </div>
 </nav>
@@ -30,7 +49,7 @@
         <form id="addNodeForm">
             <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-group">
-                    <label class="form-label">نام نمایشی (برای نمایندگان)</label>
+                    <label class="form-label">نام نمایشی</label>
                     <input type="text" id="nodeName" class="form-control" placeholder="مثلا: سرور VIP آلمان 🇩🇪" required>
                 </div>
                 <div class="form-group">
@@ -46,24 +65,23 @@
                     <input type="url" id="apiUrl" class="form-control" placeholder="https://1.2.3.4:8000" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">توکن امنیتی (Admin Token)</label>
-                    <input type="text" id="apiToken" class="form-control" placeholder="توکن ادمین پنل مقصد..." required>
+                    <label class="form-label">یوزر و پسورد (یا توکن)</label>
+                    <input type="text" id="apiToken" class="form-control" placeholder="مثلا: admin:password" required>
                 </div>
             </div>
             
             <div class="form-group" style="margin-top: 15px;">
                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                     <input type="checkbox" id="isVisible" checked>
-                    <span style="font-weight: bold;">نمایش در لینک ساب کاربران (مستر لینک)</span>
+                    <span style="font-weight: bold;">نمایش در لینک ساب کاربران</span>
                 </label>
-                <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 5px;">اگر تیک را بردارید، این سرور به حالت روح (Ghost Mode) می‌رود و در لینک ساب کاربران مخفی می‌شود.</p>
             </div>
 
-            <button type="submit" class="btn-main" id="submitNodeBtn" style="background: #3b82f6; width: 100%; margin-top: 15px;">➕ اتصال سرور به هسته گاردینو</button>
+            <button type="submit" class="btn-main" id="submitNodeBtn" style="background: #3b82f6; width: 100%; margin-top: 15px;">➕ تست اتصال و ثبت سرور</button>
         </form>
     </div>
 
-    <div class="section-title" style="margin-top: 40px;">🌐 لیست سرورهای متصل</div>
+    <div class="section-title" style="margin-top: 40px;">🌐 مدیریت سرورهای متصل</div>
     <div class="card">
         <div id="nodesList" style="display: grid; grid-template-columns: 1fr; gap: 10px;">
             <p style="text-align: center; opacity: 0.6;">در حال بارگذاری سرورها...</p>
@@ -72,53 +90,50 @@
 
 </div>
 
-<script src="../assets/js/app.js"></script>
+<script src="../assets/js/app.js"></script> 
 <script>
     const token = localStorage.getItem("guardino_token");
     if (!token) window.location.href = "login.html";
 
-    // 1. تابع لود کردن سرورها از API
+    function logout() { localStorage.clear(); window.location.href = "login.html"; }
+
     async function fetchNodes() {
         try {
-            const res = await fetch("http://localhost:8000/api/v1/nodes/list", {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
+            const res = await fetch("/api/v1/nodes/list", { headers: { "Authorization": `Bearer ${token}` } });
             const data = await res.json();
             const container = document.getElementById("nodesList");
             container.innerHTML = "";
 
             if (data.nodes && data.nodes.length > 0) {
                 data.nodes.forEach(node => {
-                    const statusColor = node.status === 'active' ? '#10b981' : '#ef4444';
+                    const isActive = node.status === 'active';
+                    const statusColor = isActive ? '#10b981' : '#ef4444';
+                    const toggleText = isActive ? 'خاموش کن' : 'روشن کن';
+                    
                     container.innerHTML += `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; flex-wrap: wrap; gap: 15px;">
                             <div>
-                                <div style="font-weight: 900; font-size: 1.1rem; color: var(--text);">${node.display_name}</div>
-                                <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 5px;">نوع: ${node.panel_type.toUpperCase()} | آدرس: <span style="direction: ltr; display: inline-block;">${node.api_url}</span></div>
+                                <div style="font-weight: 900; font-size: 1.1rem; color: var(--text);">${node.display_name} <span style="font-size:0.7rem; opacity:0.6;">(ID: ${node.id})</span></div>
+                                <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 5px;">${node.panel_type.toUpperCase()} | <span style="direction: ltr; display: inline-block;">${node.api_url}</span></div>
                             </div>
-                            <div style="text-align: left;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
                                 <span style="background: ${statusColor}20; color: ${statusColor}; padding: 5px 10px; border-radius: 50px; font-size: 0.8rem; font-weight: bold;">${node.status.toUpperCase()}</span>
-                                <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 5px;">
-                                    وضعیت ساب: ${node.is_visible_in_sub ? '🟢 فعال' : '👻 مخفی (حالت روح)'}
-                                </div>
+                                
+                                <button onclick="toggleNode(${node.id})" class="btn-main btn-gray" style="padding: 5px 10px; font-size: 0.8rem; width: auto; margin: 0;">${toggleText}</button>
+                                <button onclick="deleteNode(${node.id})" class="btn-main" style="background: #ef4444; padding: 5px 10px; font-size: 0.8rem; width: auto; margin: 0;">🗑️ حذف</button>
                             </div>
                         </div>
                     `;
                 });
-            } else {
-                container.innerHTML = "<p style='text-align:center;'>هیچ سروری به شبکه متصل نیست.</p>";
-            }
-        } catch (e) {
-            document.getElementById("nodesList").innerHTML = "خطا در دریافت اطلاعات.";
-        }
+            } else { container.innerHTML = "<p style='text-align:center;'>هیچ سروری متصل نیست.</p>"; }
+        } catch (e) { document.getElementById("nodesList").innerHTML = "خطا در دریافت لیست."; }
     }
 
-    // 2. فرم افزودن سرور جدید
+    // افزودن نود
     document.getElementById('addNodeForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const btn = document.getElementById('submitNodeBtn');
-        btn.innerText = "⏳ در حال اتصال...";
-        btn.disabled = true;
+        btn.innerText = "⏳ در حال برقراری ارتباط (تست پینگ)..."; btn.disabled = true;
 
         const payload = {
             display_name: document.getElementById('nodeName').value,
@@ -130,38 +145,38 @@
         };
 
         try {
-            const res = await fetch("http://localhost:8000/api/v1/nodes/add", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` 
-                },
-                body: JSON.stringify(payload)
+            const res = await fetch("/api/v1/nodes/add", {
+                method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify(payload)
             });
-
             const data = await res.json();
             if (res.ok) {
-                showToast("✅ سرور با موفقیت به شبکه متصل شد!", "success");
-                document.getElementById('addNodeForm').reset();
-                fetchNodes(); // رفرش لیست سرورها
+                if(typeof showToast === "function") showToast(data.message, "success"); else alert(data.message);
+                document.getElementById('addNodeForm').reset(); fetchNodes();
             } else {
-                showToast(data.detail || "خطا در ثبت سرور", "danger");
+                if(typeof showToast === "function") showToast(data.detail, "danger"); else alert(data.detail);
             }
-        } catch (err) {
-            showToast("خطا در برقراری ارتباط با هسته.", "danger");
-        } finally {
-            btn.innerText = "➕ اتصال سرور به هسته گاردینو";
-            btn.disabled = false;
-        }
+        } catch (err) { alert("خطا در ارتباط شبکه"); } 
+        finally { btn.innerText = "➕ تست اتصال و ثبت سرور"; btn.disabled = false; }
     });
 
-    // لود اولیه
-    fetchNodes();
-
-    function logout() {
-        localStorage.clear();
-        window.location.href = "login.html";
+    // حذف نود
+    async function deleteNode(id) {
+        if(!confirm("آیا از حذف کامل این سرور اطمینان دارید؟")) return;
+        try {
+            const res = await fetch(`/api/v1/nodes/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } });
+            if(res.ok) { fetchNodes(); } else { alert("خطا در حذف. ممکن است کاربری روی این سرور وجود داشته باشد."); }
+        } catch(e) { alert("خطا"); }
     }
+
+    // خاموش/روشن کردن نود
+    async function toggleNode(id) {
+        try {
+            const res = await fetch(`/api/v1/nodes/${id}/toggle`, { method: "PUT", headers: { "Authorization": `Bearer ${token}` } });
+            if(res.ok) fetchNodes();
+        } catch(e) { alert("خطا"); }
+    }
+
+    fetchNodes();
 </script>
 </body>
 </html>
