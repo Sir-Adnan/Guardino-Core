@@ -1,19 +1,20 @@
 # app/core/config.py
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Guardino Core API"
     VERSION: str = "1.0.0"
     
-    # تنظیمات دیتابیس PostgreSQL (از نوع Async برای سرعت بالا)
+    # متغیر جدید برای دامنه داینامیک (در داکر از فایل .env خوانده می‌شود)
+    # اگر در .env نباشد، از آدرس لوکال استفاده می‌کند
+    SYSTEM_DOMAIN: str = "http://localhost:8000" 
+    
     POSTGRES_USER: str = "guardino_admin"
     POSTGRES_PASSWORD: str = "super_secret_password_here"
     POSTGRES_DB: str = "guardino_core_db"
-    POSTGRES_HOST: str = "db" # در داکر، اسم سرویس db است
+    POSTGRES_HOST: str = "db"
     POSTGRES_PORT: str = "5432"
     
-    # کلید امنیتی برای ساخت توکن‌های API نمایندگان و لینک ساب
     SECRET_KEY: str = "YOUR_SUPER_SECRET_KEY_REPLACE_LATER_IN_PRODUCTION"
     
     @property
