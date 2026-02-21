@@ -5,15 +5,11 @@ from app.models import Node
 
 class MarzbanAdapter:
     def __init__(self, node: Node):
-        """
-        این کلاس با دریافت اطلاعات یک نود از دیتابیس، به API مرزبان متصل می‌شود.
-        """
-        # پاکسازی آدرس از اسلش‌های اضافی
         self.base_url = node.api_url.rstrip("/") + "/api"
         self.api_token = node.api_token
         self.headers = {"Accept": "application/json"}
         
-        # سیستم هوشمند: تشخیص اینکه آیا کاربر username:password وارد کرده یا توکن مستقیم
+        # سیستم لاگین هوشمند
         if self.api_token and ":" in self.api_token and len(self.api_token) < 100:
             self.username, self.password = self.api_token.split(":", 1)
             self.is_auto_auth = True
@@ -23,12 +19,9 @@ class MarzbanAdapter:
                 self.headers["Authorization"] = f"Bearer {self.api_token}"
 
     async def get_token(self) -> str:
-        """
-        دریافت خودکار توکن ادمین از مرزبان
-        """
+        """دریافت خودکار توکن ادمین از مرزبان"""
         url = f"{self.base_url}/admin/token"
         data = {"grant_type": "password", "username": self.username, "password": self.password}
-        
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(url, data=data)
             response.raise_for_status()
@@ -38,38 +31,41 @@ class MarzbanAdapter:
             return self.api_token
 
     async def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-        """
-        تابع داخلی برای ارسال درخواست‌های HTTP (Async)
-        """
-        # اگر لاگین هوشمند است و هنوز هدر Authorization نداریم، توکن بگیر
         if self.is_auto_auth and "Authorization" not in self.headers:
             await self.get_token()
 
         url = f"{self.base_url}{endpoint}"
-        
         async with httpx.AsyncClient(verify=False) as client:
-            response = await client.request(
-                method=method,
-                url=url,
-                headers=self.headers,
-                json=data
-            )
+            response = await client.request(method=method, url=url, headers=self.headers, json=data)
             
-            # اگر توکن قبلی منقضی شده بود (ارور 401)، دوباره توکن جدید می‌گیریم و درخواست را تکرار می‌کنیم
             if response.status_code == 401 and self.is_auto_auth:
                 await self.get_token()
-                response = await client.request(
-                    method=method, url=url, headers=self.headers, json=data
-                )
+                response = await client.request(method=method, url=url, headers=self.headers, json=data)
                 
             response.raise_for_status()
-            
             try:
                 return response.json()
             except ValueError:
                 return {"detail": response.text}
 
-    async def create_user(self, username: str, expire: int, data_limit: int, proxies: Dict, inbounds: Dict) -> Dict:
+    async def get_inbounds(self) -> Dict:
+        """دریافت لیست Inbound های فعال از مرزبان"""
+        return await self._make_request("GET", "/inbounds")
+
+    async def create_user(self, username: str, expire: int, data_limit: int, proxies: Dict = None) -> Dict:
+        """ساخت کاربر با شناسایی هوشمند Inbound ها"""
+        if proxies is None or not proxies:
+            proxies = {"vless": {}, "vmess": {}, "trojan": {}}
+
+        # دریافت خودکار اینباندها برای جلوگیری از ارور 400 مرزبان
+        inbounds_data = await self.get_inbounds()
+        inbounds = {}
+        
+        if isinstance(inbounds_data, dict) and "detail" not in inbounds_data:
+            for proto, list_inbounds in inbounds_data.items():
+                if proto in proxies:
+                    inbounds[proto] = [ib["tag"] for ib in list_inbounds]
+        
         payload = {
             "username": username,
             "proxies": proxies,
@@ -98,5 +94,4 @@ class MarzbanAdapter:
         sub_url = user_data.get("subscription_url")
         if not sub_url and "links" in user_data and len(user_data["links"]) > 0:
             sub_url = user_data["links"][0]
-            
         return sub_url
