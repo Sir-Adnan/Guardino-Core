@@ -12,7 +12,7 @@ from app.models import Reseller, Node, NodeAllocation, GuardinoUser, SubAccount,
 from app.schemas.user import UserCreateRequest, UserCreateResponse
 from app.services.node_factory import NodeFactory
 from app.api.deps import get_current_reseller
-
+from app.core.config import settings
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 @router.post("/create", response_model=UserCreateResponse)
@@ -138,7 +138,7 @@ async def create_multi_node_user(
 
     await db.commit()
 
-    master_sub_link = f"https://sub.guardino.dev/sub/{sub_token}"
+    master_sub_link = f"{settings.SYSTEM_DOMAIN}/sub/{sub_token}"
 
     return UserCreateResponse(
         message="✅ کاربر با موفقیت در تمام سرورها ساخته شد.",
