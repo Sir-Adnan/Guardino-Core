@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ورود مدیریت ارشد | گاردینو پرو</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+    <style>
+        .admin-theme { background: #0f172a; }
+        .admin-card { border-top: 4px solid #3b82f6; }
+    </style>
+</head>
+<body class="login-body admin-theme dark-mode">
+<div class="login-wrapper">
+    <div class="login-brand" style="color: #3b82f6; text-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);">GUARDINO CORE</div>
+    <div class="login-subtitle-top">ورود به پنل مدیریت ارشد شبکه</div>
+
+    <div class="login-card admin-card">
+        <div id="errorBox" class="alert danger" style="display: none;"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label">نام کاربری ادمین</label>
+                <input type="text" id="username" class="form-control" placeholder="guardino_admin" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 25px;">
+                <label class="form-label">رمز عبور امن</label>
+                <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-main" id="loginBtn" style="background: #3b82f6; width: 100%;">ورود به سیستم مدیریت</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('loginBtn');
+        const errorBox = document.getElementById('errorBox');
+        
+        btn.innerText = "در حال اتصال به هسته...";
+        btn.disabled = true;
+        errorBox.style.display = "none";
+
+        const formData = new URLSearchParams();
+        formData.append("username", document.getElementById('username').value);
+        formData.append("password", document.getElementById('password').value);
+
+        try {
+            // استفاده از مسیر نسبی API تا روی هر دامنه‌ای کار کند
+            const response = await fetch("/api/v1/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // بررسی اینکه شخص حتماً ادمین کل (master) باشد
+                if (data.role !== "master") {
+                    errorBox.innerText = "شما سطح دسترسی ادمین ارشد را ندارید!";
+                    errorBox.style.display = "block";
+                } else {
+                    localStorage.setItem("guardino_token", data.access_token);
+                    localStorage.setItem("reseller_role", data.role);
+                    window.location.href = "index.html"; // انتقال به داشبورد ادمین
+                }
+            } else {
+                errorBox.innerText = data.detail || "نام کاربری یا رمز عبور اشتباه است.";
+                errorBox.style.display = "block";
+            }
+        } catch (err) {
+            errorBox.innerText = "خطا در ارتباط با سرور مرکزی.";
+            errorBox.style.display = "block";
+        } finally {
+            btn.innerText = "ورود به سیستم مدیریت";
+            btn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>
