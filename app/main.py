@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import users, subscriptions  # ایمپورت صحیح و یکباره
+from app.api import users, subscriptions, auth
 
 # 1. ابتدا هسته API را می‌سازیم
 app = FastAPI(
@@ -22,6 +22,7 @@ app.add_middleware(
 # 3. اتصال روترها (فقط یک‌بار)
 app.include_router(users.router)
 app.include_router(subscriptions.router)
+app.include_router(auth.router)
 
 @app.get("/")
 async def root():
