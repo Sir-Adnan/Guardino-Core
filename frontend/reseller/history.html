@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تاریخچه مالی | گاردینو پرو</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="index.html" class="nav-brand">GUARDINO</a>
+    <div class="hamburger" onclick="toggleMenu()">☰</div>
+    <div class="nav-menu" id="navMenu">
+        <a href="index.html">🏠 داشبورد</a>
+        <a href="users.html">👥 مدیریت کاربران</a>
+        <a href="history.html" style="color: var(--primary);">📊 تاریخچه مالی</a>
+        <a href="#" onclick="logout()">🚪 خروج</a>
+    </div>
+</nav>
+
+<div class="container" style="padding-top: 20px;">
+    
+    <div class="section-title">📊 گردش حساب و تراکنش‌ها</div>
+    
+    <div class="card">
+        <table style="width: 100%; border-collapse: collapse; text-align: right; min-width: 500px;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border); color: var(--text); opacity: 0.8;">
+                    <th style="padding: 12px 10px;">شرح تراکنش</th>
+                    <th>نوع عملیات</th>
+                    <th>مبلغ (تومان)</th>
+                    <th>تاریخ و زمان</th>
+                </tr>
+            </thead>
+            <tbody id="historyTableBody">
+                <tr><td colspan="4" style="text-align:center; padding: 20px; opacity: 0.6;">در حال بارگذاری اطلاعات...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+    const token = localStorage.getItem("guardino_token");
+    if (!token) window.location.href = "login.html";
+
+    // منوی نماینده ارشد
+    const userRole = localStorage.getItem("reseller_role");
+    if (userRole === "master") {
+        const navMenu = document.getElementById("navMenu");
+        const subResellerLink = document.createElement("a");
+        subResellerLink.href = "sub-resellers.html"; 
+        subResellerLink.innerHTML = "🏢 زیرمجموعه‌های من";
+        navMenu.insertBefore(subResellerLink, navMenu.lastElementChild);
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "login.html";
+    }
+
+    // لود کردن تاریخچه از API
+    async function loadHistory() {
+        try {
+            const response = await fetch("http://localhost:8000/api/v1/resellers/history", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            const tbody = document.getElementById("historyTableBody");
+            tbody.innerHTML = "";
+
+            if (data.history && data.history.length > 0) {
+                data.history.forEach(log => {
+                    // تعیین رنگ و علامت مبلغ (مثبت: سبز، منفی: قرمز)
+                    let amountColor = log.amount < 0 ? "#ef4444" : "#10b981";
+                    let amountSign = log.amount > 0 ? "+" : "";
+                    
+                    // ترجمه نوع عملیات
+                    let typeLabel = "نامشخص";
+                    let typeColor = "#6b7280";
+                    if (log.type === "buy_vpn") { typeLabel = "خرید اشتراک"; typeColor = "#3b82f6"; }
+                    else if (log.type === "wallet_charge") { typeLabel = "شارژ کیف پول"; typeColor = "#10b981"; }
+                    else if (log.type === "daily_fee") { typeLabel = "آبونمان پنل"; typeColor = "#f59e0b"; }
+                    else if (log.type === "refund") { typeLabel = "استرداد وجه"; typeColor = "#8b5cf6"; }
+
+                    // تبدیل تاریخ میلادی به شمسی
+                    let dateObj = new Date(log.date);
+                    let formattedDate = dateObj.toLocaleDateString('fa-IR') + " - " + dateObj.toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'});
+
+                    tbody.innerHTML += `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 15px 10px; color: var(--text); font-size: 0.9rem;">${log.description}</td>
+                            <td><span style="background: ${typeColor}20; color: ${typeColor}; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${typeLabel}</span></td>
+                            <td style="color: ${amountColor}; font-weight: bold; font-family: monospace; font-size: 1.1rem; direction: ltr; text-align: right;">
+                                ${amountSign}${log.amount.toLocaleString()}
+                            </td>
+                            <td style="font-size: 0.85rem; opacity: 0.8; direction: ltr; text-align: right;">${formattedDate}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px;">هیچ تراکنشی ثبت نشده است.</td></tr>`;
+            }
+        } catch (e) {
+            document.getElementById("historyTableBody").innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px; color: red;">خطا در دریافت اطلاعات.</td></tr>`;
+        }
+    }
+
+    loadHistory();
+</script>
+</body>
+</html>
