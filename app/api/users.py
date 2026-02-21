@@ -26,47 +26,58 @@ async def create_multi_node_user(
     data_limit_bytes = int(request.data_limit_gb * gb_to_bytes)
     expire_timestamp = int((datetime.utcnow() + timedelta(days=request.expire_days)).timestamp()) if request.expire_days > 0 else 0
 
-    # 1. قفل کردن کیف پول نماینده
+    # قفل کردن اکانت نماینده
     reseller_query = await db.execute(
         select(Reseller).where(Reseller.id == current_reseller.id).with_for_update()
     )
     reseller = reseller_query.scalar_one_or_none()
     if not reseller or reseller.status != "active":
-        raise HTTPException(status_code=400, detail="نماینده یافت نشد یا مسدود است.")
+        raise HTTPException(status_code=400, detail="اکانت شما مسدود است.")
 
-    # 2. بررسی تکراری نبودن نام کاربری در گاردینو
+    # بررسی تکراری نبودن نام کاربری
     existing_user = await db.execute(select(GuardinoUser).where(GuardinoUser.username == request.username))
     if existing_user.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="این نام کاربری از قبل وجود دارد.")
 
-    # 3. محاسبه هزینه ترکیبی از روی جداول دسترسی
     total_cost = 0
     valid_nodes = []
     
+    # === منطق جدید: تفاوت دسترسی ادمین کل با نماینده ===
     for n_id in request.node_ids:
-        alloc_query = await db.execute(
-            select(NodeAllocation).options(selectinload(NodeAllocation.node)).where(
-                NodeAllocation.reseller_id == current_reseller.id,
-                NodeAllocation.node_id == n_id
+        if current_reseller.parent_id is None:
+            # ادمین کل: بدون محدودیت نود را پیدا کن و قیمت را صفر در نظر بگیر
+            node_query = await db.execute(select(Node).where(Node.id == n_id))
+            node = node_query.scalar_one_or_none()
+            if not node or node.status != "active":
+                raise HTTPException(status_code=400, detail=f"سرور {n_id} یافت نشد یا خاموش است.")
+            valid_nodes.append(node)
+            cost_for_this_node = 0
+        else:
+            # نماینده: باید حتماً تخصیص داده شده باشد
+            alloc_query = await db.execute(
+                select(NodeAllocation).options(selectinload(NodeAllocation.node)).where(
+                    NodeAllocation.reseller_id == current_reseller.id,
+                    NodeAllocation.node_id == n_id
+                )
             )
-        )
-        allocation = alloc_query.scalar_one_or_none()
-        
-        if not allocation or allocation.node.status != "active":
-            raise HTTPException(status_code=400, detail=f"شما به سرور {n_id} دسترسی ندارید یا سرور خاموش است.")
-        
-        price_gb = allocation.custom_price_per_gb if allocation.custom_price_per_gb is not None else reseller.base_price_master_sub
-        price_day = allocation.custom_price_per_day if allocation.custom_price_per_day is not None else 0
-        
-        cost_for_this_node = (request.data_limit_gb * price_gb) + (request.expire_days * price_day)
-        total_cost += int(cost_for_this_node)
-        valid_nodes.append(allocation.node)
+            allocation = alloc_query.scalar_one_or_none()
+            
+            if not allocation or allocation.node.status != "active":
+                raise HTTPException(status_code=400, detail=f"شما به سرور {n_id} دسترسی ندارید یا سرور خاموش است.")
+            
+            price_gb = allocation.custom_price_per_gb if allocation.custom_price_per_gb is not None else reseller.base_price_master_sub
+            price_day = allocation.custom_price_per_day if allocation.custom_price_per_day is not None else 0
+            
+            cost_for_this_node = (request.data_limit_gb * price_gb) + (request.expire_days * price_day)
+            valid_nodes.append(allocation.node)
 
-    # 4. بررسی موجودی کیف پول
-    if reseller.balance < total_cost:
+        total_cost += int(cost_for_this_node)
+
+    # بررسی موجودی فقط برای نمایندگان
+    if current_reseller.parent_id is not None and reseller.balance < total_cost:
         raise HTTPException(status_code=400, detail=f"موجودی ناکافی. مبلغ مورد نیاز: {total_cost} تومان")
 
-    # 5. ساخت کاربر در سرورها به صورت موازی (Async Parallel)
+    # ساخت کاربر به صورت موازی
     creation_tasks = []
     for node in valid_nodes:
         adapter = NodeFactory.get_adapter(node)
@@ -80,10 +91,9 @@ async def create_multi_node_user(
 
     results = await asyncio.gather(*creation_tasks, return_exceptions=True)
 
-    # 6. بررسی خطا و سیستم Rollback
+    # بررسی خطا
     successful_nodes = []
     failed = False
-    
     for i, result in enumerate(results):
         if isinstance(result, Exception) or (isinstance(result, dict) and "detail" in result):
             failed = True
@@ -97,11 +107,11 @@ async def create_multi_node_user(
             rollback_tasks.append(adapter.delete_user(request.username))
         if rollback_tasks:
             await asyncio.gather(*rollback_tasks, return_exceptions=True)
-            
-        raise HTTPException(status_code=502, detail="خطا در ارتباط با یکی از سرورها. عملیات به طور کامل لغو شد و پولی کسر نگردید.")
+        raise HTTPException(status_code=502, detail="خطا در ارتباط با یکی از سرورها. عملیات به طور کامل لغو شد.")
 
-    # 7. کسر موجودی و ثبت در دیتابیس
-    reseller.balance -= total_cost
+    # کسر موجودی فقط برای نمایندگان
+    if current_reseller.parent_id is not None:
+        reseller.balance -= total_cost
     
     expire_dt = datetime.utcnow() + timedelta(days=request.expire_days) if request.expire_days > 0 else None
     sub_token = uuid.uuid4().hex
@@ -126,13 +136,16 @@ async def create_multi_node_user(
         )
         db.add(sub_acc)
 
-    log = TransactionLog(
-        reseller_id=current_reseller.id,
-        amount=-total_cost,
-        transaction_type=TransactionType.BUY_VPN,
-        description=f"ساخت کاربر {request.username} روی {len(valid_nodes)} سرور"
-    )
-    db.add(log)
+    # ثبت لاگ فقط اگر هزینه‌ای داشت
+    if total_cost > 0:
+        log = TransactionLog(
+            reseller_id=current_reseller.id,
+            amount=-total_cost,
+            transaction_type=TransactionType.BUY_VPN,
+            description=f"ساخت کاربر {request.username} روی {len(valid_nodes)} سرور"
+        )
+        db.add(log)
+        
     await db.commit()
 
     master_sub_link = f"{settings.SYSTEM_DOMAIN}/sub/{sub_token}"
@@ -144,7 +157,6 @@ async def create_multi_node_user(
         sub_link=master_sub_link
     )
 
-# --- اضافه شدن API لیست کاربران ---
 @router.get("/list")
 async def get_reseller_users(
     current_reseller: Reseller = Depends(get_current_reseller),
