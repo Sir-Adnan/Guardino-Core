@@ -18,17 +18,16 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 @router.post("/create", response_model=UserCreateResponse)
 async def create_multi_node_user(
     request: UserCreateRequest,
-current_reseller: Reseller = Depends(get_current_reseller),
+    current_reseller: Reseller = Depends(get_current_reseller),
     db: AsyncSession = Depends(get_db)
 ):
     gb_to_bytes = 1073741824
     data_limit_bytes = int(request.data_limit_gb * gb_to_bytes)
     expire_timestamp = int((datetime.utcnow() + timedelta(days=request.expire_days)).timestamp()) if request.expire_days > 0 else 0
 
-    # 1. قفل کردن کیف پول نماینده برای جلوگیری از تقلب (کلیک همزمان / Race Condition)
-    # استفاده از with_for_update() باعث می‌شود هیچ ریکوئست دیگری نتواند همزمان این ردیف را تغییر دهد
+    # 1. قفل کردن کیف پول نماینده
     reseller_query = await db.execute(
-        select(Reseller).where(Reseller.id == reseller_id).with_for_update()
+        select(Reseller).where(Reseller.id == current_reseller.id).with_for_update()
     )
     reseller = reseller_query.scalar_one_or_none()
     if not reseller or reseller.status != "active":
@@ -44,10 +43,10 @@ current_reseller: Reseller = Depends(get_current_reseller),
     valid_nodes = []
     
     for n_id in request.node_ids:
-        # پیدا کردن دسترسی نماینده به این سرور و قیمت آن
+        # اصلاح شد: NodeAllocation.reseller_id صحیح است
         alloc_query = await db.execute(
             select(NodeAllocation).options(selectinload(NodeAllocation.node)).where(
-                NodeAllocation.reseller_id == reseller_id,
+                NodeAllocation.reseller_id == current_reseller.id,
                 NodeAllocation.node_id == n_id
             )
         )
@@ -56,7 +55,6 @@ current_reseller: Reseller = Depends(get_current_reseller),
         if not allocation or allocation.node.status != "active":
             raise HTTPException(status_code=400, detail=f"شما به سرور {n_id} دسترسی ندارید یا سرور خاموش است.")
         
-        # محاسبه قیمت (اگر قیمت اختصاصی داشت از آن، وگرنه از قیمت پایه سیستم)
         price_gb = allocation.custom_price_per_gb if allocation.custom_price_per_gb is not None else reseller.base_price_master_sub
         price_day = allocation.custom_price_per_day if allocation.custom_price_per_day is not None else 0
         
@@ -72,7 +70,6 @@ current_reseller: Reseller = Depends(get_current_reseller),
     creation_tasks = []
     for node in valid_nodes:
         adapter = NodeFactory.get_adapter(node)
-        # هر آداپتور متد create_user خودش را دارد
         if node.panel_type == "marzban":
             task = adapter.create_user(request.username, expire_timestamp, data_limit_bytes, request.proxies, {"vless": ["vless-inbound"]})
         elif node.panel_type == "pasarguard":
@@ -81,10 +78,9 @@ current_reseller: Reseller = Depends(get_current_reseller),
             task = adapter.create_user(request.username)
         creation_tasks.append(task)
 
-    # اجرای همزمان ریکوئست‌ها
     results = await asyncio.gather(*creation_tasks, return_exceptions=True)
 
-    # 6. بررسی خطا و سیستم Rollback (بازگشت به عقب)
+    # 6. بررسی خطا و سیستم Rollback
     successful_nodes = []
     failed = False
     
@@ -94,7 +90,6 @@ current_reseller: Reseller = Depends(get_current_reseller),
             break
         successful_nodes.append(valid_nodes[i])
 
-    # اگر حتی یک سرور خطا داد، کاربر را از بقیه سرورها هم پاک می‌کنیم و پولی کسر نمی‌کنیم!
     if failed:
         rollback_tasks = []
         for snode in successful_nodes:
@@ -105,14 +100,15 @@ current_reseller: Reseller = Depends(get_current_reseller),
             
         raise HTTPException(status_code=502, detail="خطا در ارتباط با یکی از سرورها. عملیات به طور کامل لغو شد و پولی کسر نگردید.")
 
-    # 7. کسر موجودی و ثبت در دیتابیس (چون همه سرورها موفق بودند)
+    # 7. کسر موجودی و ثبت در دیتابیس
     reseller.balance -= total_cost
     
     expire_dt = datetime.utcnow() + timedelta(days=request.expire_days) if request.expire_days > 0 else None
-    sub_token = uuid.uuid4().hex # تولید توکن 32 کاراکتری یکتا برای لینک ساب مستر
+    sub_token = uuid.uuid4().hex
 
+    # اصلاح شد: reseller_id صحیح است
     new_user = GuardinoUser(
-        reseller_id=reseller_id,
+        reseller_id=current_reseller.id,
         username=request.username,
         status=UserStatus.ACTIVE,
         purchased_data_limit=data_limit_bytes,
@@ -121,29 +117,27 @@ current_reseller: Reseller = Depends(get_current_reseller),
         sub_token=sub_token
     )
     db.add(new_user)
-    await db.flush() # برای گرفتن ID کاربر جدید
+    await db.flush()
 
-    # ثبت اکانت‌های زیرمجموعه
     for snode in valid_nodes:
         sub_acc = SubAccount(
             guardino_user_id=new_user.id,
             node_id=snode.id,
-            remote_identifier=request.username # در مرزبان و پاسارگاد یوزرنیم همان شناسه است
+            remote_identifier=request.username
         )
         db.add(sub_acc)
 
-    # ثبت لاگ مالی
+    # اصلاح شد: reseller_id صحیح است
     log = TransactionLog(
-        reseller_id=reseller_id,
+        reseller_id=current_reseller.id,
         amount=-total_cost,
         transaction_type=TransactionType.BUY_VPN,
         description=f"ساخت کاربر {request.username} روی {len(valid_nodes)} سرور"
     )
     db.add(log)
 
-    await db.commit() # ثبت نهایی تمام تغییرات دیتابیس
+    await db.commit()
 
-    # آدرس ساب مرکزی (این دامنه باید از متغیرهای محیطی خوانده شود)
     master_sub_link = f"https://sub.guardino.dev/sub/{sub_token}"
 
     return UserCreateResponse(
