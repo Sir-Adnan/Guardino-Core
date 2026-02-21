@@ -54,11 +54,21 @@
     <div class="card card-bordered" id="allocForm" style="display: none; border-color: #10b981;">
         <h3 class="section-title" style="margin-top: 0;">🔗 تخصیص سرور به نماینده</h3>
         <form id="allocateNodeForm">
-            <div class="grid-create">
-                <div class="form-group"><label class="form-label">آیدی نماینده (ID)</label><input type="number" id="allocResellerId" class="form-control" required></div>
-                <div class="form-group"><label class="form-label">آیدی سرور (Node ID)</label><input type="number" id="allocNodeId" class="form-control" required></div>
+            <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label class="form-label">انتخاب نماینده هدف</label>
+                    <select id="allocResellerId" class="form-control" required>
+                        <option value="">در حال بارگذاری...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">انتخاب سرور</label>
+                    <select id="allocNodeId" class="form-control" required>
+                        <option value="">در حال بارگذاری...</option>
+                    </select>
+                </div>
             </div>
-            <div class="flex-actions">
+            <div class="flex-actions" style="margin-top: 15px;">
                 <button type="submit" id="allocBtn" class="btn-main btn-w-150" style="background: #10b981;">تخصیص دسترسی</button>
                 <button type="button" class="btn-main btn-w-150 btn-gray" onclick="toggleSection('allocForm', 'block')">بستن</button>
             </div>
@@ -84,7 +94,32 @@
         if(el) el.style.display = (el.style.display === 'none' || el.style.display === '') ? displayType : 'none';
     }
 
-    // لود کردن لیست نمایندگان با کارت‌های زیبا
+    // لود کردن لیست‌ها برای منوی کشویی تخصیص سرور
+    async function loadSelectData() {
+        try {
+            const resResellers = await fetch("/api/v1/resellers/list", { headers: { "Authorization": `Bearer ${token}` } });
+            const dataResellers = await resResellers.json();
+            const rSelect = document.getElementById("allocResellerId");
+            rSelect.innerHTML = '<option value="">انتخاب نماینده...</option>';
+            if(dataResellers.resellers) {
+                dataResellers.resellers.forEach(r => {
+                    rSelect.innerHTML += `<option value="${r.id}">${r.username} (موجودی: ${r.balance.toLocaleString()})</option>`;
+                });
+            }
+
+            const resNodes = await fetch("/api/v1/nodes/list", { headers: { "Authorization": `Bearer ${token}` } });
+            const dataNodes = await resNodes.json();
+            const nSelect = document.getElementById("allocNodeId");
+            nSelect.innerHTML = '<option value="">انتخاب سرور...</option>';
+            if(dataNodes.nodes) {
+                dataNodes.nodes.forEach(n => {
+                    nSelect.innerHTML += `<option value="${n.id}">${n.display_name} (${n.panel_type})</option>`;
+                });
+            }
+        } catch (e) { console.error("خطا در بارگذاری منوهای کشویی"); }
+    }
+
+    // لود کردن لیست نمایندگان
     async function loadResellers() {
         try {
             const res = await fetch("/api/v1/resellers/list", { headers: { "Authorization": `Bearer ${token}` } });
@@ -149,7 +184,6 @@
         } catch (e) { container.innerHTML = "<p>خطا در دریافت لیست</p>"; }
     }
 
-    // ارسال فرم ساخت نماینده
     document.getElementById('addResellerForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const btn = document.getElementById('addBtn'); btn.disabled = true; btn.innerText = "⏳...";
@@ -165,13 +199,22 @@
             const res = await fetch("/api/v1/resellers/create", {
                 method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify(payload)
             });
-            if (res.ok) { showToast("✅ نماینده ساخته شد!"); loadResellers(); document.getElementById('addResellerForm').reset(); toggleSection('addForm'); } 
-            else { const d = await res.json(); showToast(d.detail || "خطا", "danger"); }
-        } catch (err) { showToast("خطا در ارتباط", "danger"); }
+            if (res.ok) { 
+                if(typeof showToast === "function") showToast("✅ نماینده ساخته شد!", "success");
+                else alert("✅ نماینده ساخته شد!");
+                loadResellers(); 
+                loadSelectData(); // آپدیت منوی کشویی
+                document.getElementById('addResellerForm').reset(); 
+                toggleSection('addForm'); 
+            } else { 
+                const d = await res.json(); 
+                if(typeof showToast === "function") showToast(d.detail || "خطا", "danger");
+                else alert(d.detail || "خطا");
+            }
+        } catch (err) { alert("خطا در ارتباط"); }
         finally { btn.disabled = false; btn.innerText = "ثبت در سیستم"; }
     });
 
-    // ارسال فرم تخصیص نود
     document.getElementById('allocateNodeForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const btn = document.getElementById('allocBtn'); btn.disabled = true; btn.innerText = "⏳...";
@@ -181,13 +224,20 @@
                 method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                 body: JSON.stringify({ node_id: parseInt(document.getElementById('allocNodeId').value) })
             });
-            if (res.ok) { showToast("✅ سرور تخصیص داده شد!"); document.getElementById('allocateNodeForm').reset(); toggleSection('allocForm'); } 
-            else { const d = await res.json(); showToast(d.detail || "خطا", "danger"); }
-        } catch (err) { showToast("خطا در ارتباط", "danger"); }
+            if (res.ok) { 
+                if(typeof showToast === "function") showToast("✅ سرور تخصیص داده شد!", "success");
+                else alert("✅ سرور تخصیص داده شد!");
+                document.getElementById('allocateNodeForm').reset(); 
+                toggleSection('allocForm'); 
+            } else { 
+                const d = await res.json(); 
+                if(typeof showToast === "function") showToast(d.detail || "خطا", "danger");
+                else alert(d.detail || "خطا");
+            }
+        } catch (err) { alert("خطا در ارتباط"); }
         finally { btn.disabled = false; btn.innerText = "تخصیص دسترسی"; }
     });
 
-    // عملیات شارژ و کسر کیف پول
     async function handleCharge(e, id) {
         e.preventDefault();
         const btn = document.getElementById(`cbtn-${id}`); btn.disabled = true; btn.innerText = "⏳...";
@@ -203,17 +253,24 @@
             });
             const data = await res.json();
             if (res.ok) {
-                showToast("✅ موجودی آپدیت شد!");
+                if(typeof showToast === "function") showToast("✅ موجودی آپدیت شد!", "success");
+                else alert("✅ موجودی آپدیت شد!");
                 document.getElementById(`bal-${id}`).innerText = data.new_balance.toLocaleString() + " T";
                 document.getElementById(`camt-${id}`).value = "";
                 document.getElementById(`cdesc-${id}`).value = "";
-                toggleSection(`charge-${id}`); // بستن فرم
-            } else { showToast(data.detail || "خطا در تراکنش", "danger"); }
-        } catch (err) { showToast("خطا در ارتباط", "danger"); }
+                toggleSection(`charge-${id}`);
+                loadSelectData(); // آپدیت موجودی در منوی کشویی
+            } else { 
+                if(typeof showToast === "function") showToast(data.detail || "خطا در تراکنش", "danger");
+                else alert(data.detail || "خطا در تراکنش");
+            }
+        } catch (err) { alert("خطا در ارتباط"); }
         finally { btn.disabled = false; btn.innerText = "ثبت تراکنش"; }
     }
 
+    // فراخوانی اولیه
     loadResellers();
+    loadSelectData();
 </script>
 </body>
 </html>
