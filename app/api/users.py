@@ -11,13 +11,14 @@ from app.core.database import get_db
 from app.models import Reseller, Node, NodeAllocation, GuardinoUser, SubAccount, TransactionLog, TransactionType, UserStatus
 from app.schemas.user import UserCreateRequest, UserCreateResponse
 from app.services.node_factory import NodeFactory
+from app.api.deps import get_current_reseller
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 @router.post("/create", response_model=UserCreateResponse)
 async def create_multi_node_user(
     request: UserCreateRequest,
-    reseller_id: int = 1, # موقتاً هاردکد کردیم. بعداً از توکن API نماینده خوانده می‌شود
+current_reseller: Reseller = Depends(get_current_reseller),
     db: AsyncSession = Depends(get_db)
 ):
     gb_to_bytes = 1073741824
