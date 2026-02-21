@@ -14,7 +14,7 @@
     <a href="index.html" class="nav-brand">GUARDINO</a>
     <div class="hamburger" onclick="toggleMenu()">☰</div>
     <div class="nav-menu" id="navMenu">
-        <a href="index.html">🏠 داشبورد</a>
+        <a href="index.html" style="color: var(--primary);">🏠 داشبورد</a>
         <a href="users.html">👥 مدیریت کاربران</a>
         <a href="#" onclick="logout()">🚪 خروج</a>
     </div>
@@ -44,11 +44,22 @@
         window.location.href = "login.html";
     }
 
-    // 2. نمایش موجودی (از حافظه لوکال که در زمان لاگین ذخیره شد می‌خوانیم)
+    // 2. نمایش هوشمند منوی "زیرمجموعه‌های من" (فقط برای نماینده ارشد)
+    const userRole = localStorage.getItem("reseller_role");
+    if (userRole === "master") {
+        const navMenu = document.getElementById("navMenu");
+        const subResellerLink = document.createElement("a");
+        subResellerLink.href = "sub-resellers.html"; 
+        subResellerLink.innerHTML = "🏢 زیرمجموعه‌های من";
+        // قرار دادن دکمه جدید دقیقاً قبل از دکمه خروج
+        navMenu.insertBefore(subResellerLink, navMenu.lastElementChild);
+    }
+
+    // 3. نمایش موجودی (از حافظه لوکال که در زمان لاگین ذخیره شد می‌خوانیم)
     const balance = localStorage.getItem("reseller_balance") || 0;
     document.getElementById("walletBalance").innerText = Number(balance).toLocaleString("fa-IR") + " تومان";
 
-    // 3. تابع خروج
+    // 4. تابع خروج
     function logout() {
         localStorage.clear();
         window.location.href = "login.html";
