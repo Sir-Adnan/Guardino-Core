@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>زیرمجموعه‌های من | گاردینو پرو</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+<nav class="navbar">
+    <a href="index.html" class="nav-brand">GUARDINO</a>
+    <div class="nav-menu" id="navMenu">
+        <a href="index.html">🏠 داشبورد</a>
+        <a href="users.html">👥 مدیریت کاربران</a>
+        <a href="history.html">📊 تاریخچه مالی</a>
+        <a href="sub-resellers.html" style="color: var(--primary);">🏢 زیرمجموعه‌های من</a>
+        <a href="#" onclick="logout()">🚪 خروج</a>
+    </div>
+</nav>
+
+<div class="container" style="padding-top: 20px;">
+    <div class="section-title">👤 ساخت نماینده فروش جدید (زیرمجموعه شما)</div>
+    <div class="card" style="border-left: 4px solid var(--primary);">
+        <form id="addSubResellerForm">
+            <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label class="form-label">نام کاربری نماینده</label>
+                    <input type="text" id="rUsername" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">رمز عبور اختصاصی</label>
+                    <input type="text" id="rPassword" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">قیمت هر گیگ (تعرفه فروش شما به او)</label>
+                    <input type="number" id="rBasePrice" class="form-control" value="1500" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-main" id="submitBtn" style="margin-top: 20px;">ثبت نماینده در سیستم</button>
+        </form>
+    </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+    const token = localStorage.getItem("guardino_token");
+    if (!token) window.location.href = "login.html";
+    function logout() { localStorage.clear(); window.location.href = "login.html"; }
+
+    document.getElementById('addSubResellerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "⏳ در حال ساخت اکانت..."; 
+        btn.disabled = true;
+
+        const basePrice = parseInt(document.getElementById('rBasePrice').value);
+        const payload = {
+            username: document.getElementById('rUsername').value,
+            password: document.getElementById('rPassword').value,
+            daily_subscription_fee: 0,
+            base_price_per_gb: basePrice,
+            base_price_master_sub: basePrice + 500, // مقداری سود برای لینک‌های ترکیبی
+            can_create_sub: false // خرده‌فروش نمی‌تواند زیرمجموعه بگیرد
+        };
+
+        try {
+            const res = await fetch("/api/v1/resellers/create", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                if(typeof showToast === "function") showToast("✅ نماینده جدید با موفقیت ساخته شد!", "success");
+                else alert("✅ نماینده جدید با موفقیت ساخته شد!");
+                document.getElementById('addSubResellerForm').reset();
+            } else { 
+                if(typeof showToast === "function") showToast(data.detail || "خطا در ثبت نماینده", "danger");
+                else alert(data.detail || "خطا در ثبت نماینده");
+            }
+        } catch (err) { 
+            alert("خطا در ارتباط با هسته گاردینو"); 
+        } finally { 
+            btn.innerText = "ثبت نماینده در سیستم"; 
+            btn.disabled = false; 
+        }
+    });
+</script>
+</body>
+</html>
