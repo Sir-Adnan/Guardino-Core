@@ -1,0 +1,42 @@
+...
+    <div class="section-title">👤 ساخت نماینده فروش جدید (ارشد / خرده‌فروش)</div>
+    <div class="card" style="border-left: 4px solid #8b5cf6;">
+        <form id="addResellerForm">
+            <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label class="form-label">نام کاربری نماینده</label>
+                    <input type="text" id="rUsername" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">رمز عبور امن</label>
+                    <input type="text" id="rPassword" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">حق اشتراک روزانه پنل (تومان)</label>
+                    <input type="number" id="rDailyFee" class="form-control" value="0" placeholder="مثلا 30000">
+                    <small style="opacity: 0.6;">(جهت کسر اتوماتیک هر شب - 0 = رایگان)</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">دسترسی زیرمجموعه‌گیری</label>
+                    <select id="rCanSub" class="form-control">
+                        <option value="true">نماینده ارشد (Master) - می‌تواند نماینده بسازد</option>
+                        <option value="false">خرده‌فروش (Sub) - فقط ساخت اکانت VPN</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">قیمت پایه هر گیگ (تک سرور)</label>
+                    <input type="number" id="rBasePrice" class="form-control" value="1000" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">قیمت پایه هر گیگ (ترکیبی / مستر لینک)</label>
+                    <input type="number" id="rMasterPrice" class="form-control" value="2000" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-main" style="background: #8b5cf6; width: 100%; margin-top: 20px;">ثبت نماینده در سیستم</button>
+        </form>
+    </div>
+...
