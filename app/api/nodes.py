@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
-from app.models import Node, Reseller
+from app.models import Node, Reseller, NodeAllocation
 from app.api.deps import get_current_reseller
 from app.schemas.admin import NodeCreate
 
@@ -16,7 +16,7 @@ async def add_new_node(
     current_admin: Reseller = Depends(get_current_reseller),
     db: AsyncSession = Depends(get_db)
 ):
-    # فقط ادمین کل (کسی که parent_id ندارد) می‌تواند سرور فیزیکی اضافه کند
+    # فقط ادمین کل می‌تواند سرور فیزیکی اضافه کند
     if current_admin.parent_id is not None:
         raise HTTPException(status_code=403, detail="فقط ادمین کل اجازه افزودن سرور دارد.")
 
@@ -41,15 +41,16 @@ async def list_available_nodes(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    لیست سرورها. ادمین کل همه را می‌بیند، اما نماینده فقط سرورهایی که به او تخصیص داده شده را می‌بیند.
+    دریافت لیست سرورها (ادمین همه را می‌بیند، نماینده فقط مجازها را)
     """
     if current_reseller.parent_id is None:
         # ادمین کل
         result = await db.execute(select(Node))
         nodes = result.scalars().all()
     else:
-        # نماینده (فقط مجازها)
-        # در اینجا باید با جوین به جدول NodeAllocation سرورها را فیلتر کنیم
-        pass # این بخش را در اتصال دیتابیس کامل می‌کنیم
+        # نماینده: اتصال جدول Node و NodeAllocation برای فیلتر کردن
+        stmt = select(Node).join(NodeAllocation).where(NodeAllocation.reseller_id == current_reseller.id)
+        result = await db.execute(stmt)
+        nodes = result.scalars().all()
         
-    return {"nodes": nodes if current_reseller.parent_id is None else "Filtered list for reseller"}
+    return {"nodes": nodes}
