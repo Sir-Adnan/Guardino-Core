@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api import users 
+app.include_router(users.router)
 
 app = FastAPI(
     title="Guardino Core API",
