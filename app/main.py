@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import users 
+from app.api import users, subscriptions
 
 # 1. ابتدا هسته API را می‌سازیم
 app = FastAPI(
@@ -9,6 +10,9 @@ app = FastAPI(
     description="Enterprise Multi-Panel VPN Aggregator and Billing System",
     version="1.0.0"
 )
+
+app.include_router(users.router)
+app.include_router(subscriptions.router)
 
 # 2. تنظیمات CORS
 app.add_middleware(
