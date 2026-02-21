@@ -1,4 +1,29 @@
-...
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت نمایندگان | گاردینو پرو</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+    <style>
+        .admin-nav { background: #1e293b; border-bottom: 2px solid #3b82f6; }
+        .admin-nav a { color: #f8fafc; }
+    </style>
+</head>
+<body class="dark-mode">
+
+<nav class="navbar admin-nav">
+    <a href="index.html" class="nav-brand" style="color: #3b82f6;">👑 GUARDINO CORE</a>
+    <div class="nav-menu">
+        <a href="index.html">🌍 شبکه سرورها (Nodes)</a>
+        <a href="resellers.html" style="color: #3b82f6;">🏢 مدیریت نمایندگان</a>
+        <a href="#" onclick="logout()">🚪 خروج</a>
+    </div>
+</nav>
+
+<div class="container" style="padding-top: 30px;">
     <div class="section-title">👤 ساخت نماینده فروش جدید (ارشد / خرده‌فروش)</div>
     <div class="card" style="border-left: 4px solid #8b5cf6;">
         <form id="addResellerForm">
@@ -9,13 +34,12 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">رمز عبور امن</label>
-                    <input type="text" id="rPassword" class="form-control" required>
+                    <input type="password" id="rPassword" class="form-control" required>
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">حق اشتراک روزانه پنل (تومان)</label>
                     <input type="number" id="rDailyFee" class="form-control" value="0" placeholder="مثلا 30000">
-                    <small style="opacity: 0.6;">(جهت کسر اتوماتیک هر شب - 0 = رایگان)</small>
                 </div>
 
                 <div class="form-group">
@@ -39,4 +63,96 @@
             <button type="submit" class="btn-main" style="background: #8b5cf6; width: 100%; margin-top: 20px;">ثبت نماینده در سیستم</button>
         </form>
     </div>
-...
+
+    <div class="section-title" style="margin-top: 40px;">🔗 تخصیص سرور به نماینده</div>
+    <div class="card" style="border-left: 4px solid #10b981;">
+        <form id="allocateNodeForm">
+            <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label class="form-label">آیدی نماینده (Reseller ID)</label>
+                    <input type="number" id="allocResellerId" class="form-control" placeholder="مثلا: 2" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">آیدی سرور (Node ID)</label>
+                    <input type="number" id="allocNodeId" class="form-control" placeholder="مثلا: 1" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-main" style="background: #10b981; width: 100%; margin-top: 15px;">➕ تخصیص دسترسی سرور</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // اعتبارسنجی
+    const token = localStorage.getItem("guardino_token");
+    if (!token) window.location.href = "login.html";
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "login.html";
+    }
+
+    // ارسال فرم ساخت نماینده
+    document.getElementById('addResellerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+            username: document.getElementById('rUsername').value,
+            password: document.getElementById('rPassword').value,
+            daily_subscription_fee: parseInt(document.getElementById('rDailyFee').value) || 0,
+            base_price_per_gb: parseInt(document.getElementById('rBasePrice').value),
+            base_price_master_sub: parseInt(document.getElementById('rMasterPrice').value),
+            can_create_sub: document.getElementById('rCanSub').value === "true"
+        };
+
+        try {
+            const res = await fetch("/api/v1/resellers/create", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` 
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert("✅ نماینده با موفقیت ساخته شد!");
+                document.getElementById('addResellerForm').reset();
+            } else {
+                alert(data.detail || "خطا در ثبت نماینده");
+            }
+        } catch (err) {
+            alert("خطا در ارتباط با سرور مرکزی.");
+        }
+    });
+
+    // ارسال فرم تخصیص نود
+    document.getElementById('allocateNodeForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const resellerId = document.getElementById('allocResellerId').value;
+        const payload = {
+            node_id: parseInt(document.getElementById('allocNodeId').value)
+        };
+
+        try {
+            const res = await fetch(`/api/v1/resellers/${resellerId}/allocate-node`, {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` 
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert("✅ سرور با موفقیت به نماینده تخصیص داده شد!");
+                document.getElementById('allocateNodeForm').reset();
+            } else {
+                alert(data.detail || "خطا در تخصیص سرور");
+            }
+        } catch (err) {
+            alert("خطا در ارتباط با سرور مرکزی.");
+        }
+    });
+</script>
+</body>
+</html>
