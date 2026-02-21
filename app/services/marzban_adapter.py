@@ -9,6 +9,7 @@ class MarzbanAdapter:
         self.api_token = node.api_token
         self.headers = {"Accept": "application/json"}
         
+        # سیستم لاگین هوشمند
         if self.api_token and ":" in self.api_token and len(self.api_token) < 100:
             self.username, self.password = self.api_token.split(":", 1)
             self.is_auto_auth = True
@@ -18,31 +19,16 @@ class MarzbanAdapter:
                 self.headers["Authorization"] = f"Bearer {self.api_token}"
 
     async def get_token(self) -> str:
+        """دریافت خودکار توکن ادمین از مرزبان"""
         url = f"{self.base_url}/admin/token"
         data = {"grant_type": "password", "username": self.username, "password": self.password}
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(url, data=data)
-            response.raise_for_status() # اگر رمز غلط باشد اینجا ارور می‌دهد
+            response.raise_for_status()
             token_data = response.json()
             self.api_token = token_data.get("access_token")
             self.headers["Authorization"] = f"Bearer {self.api_token}"
             return self.api_token
-
-    async def test_connection(self) -> bool:
-        """تست زنده اتصال به سرور (جدید)"""
-        try:
-            if self.is_auto_auth:
-                await self.get_token()
-                return True
-            else:
-                # تست با توکن ثابت
-                url = f"{self.base_url}/admin"
-                async with httpx.AsyncClient(verify=False) as client:
-                    res = await client.get(url, headers=self.headers)
-                    res.raise_for_status()
-                    return True
-        except Exception as e:
-            raise ValueError(f"ارتباط با سرور مرزبان شکست خورد. یوزر/پسورد یا آدرس را بررسی کنید.")
 
     async def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
         if self.is_auto_auth and "Authorization" not in self.headers:
@@ -51,6 +37,7 @@ class MarzbanAdapter:
         url = f"{self.base_url}{endpoint}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.request(method=method, url=url, headers=self.headers, json=data)
+            
             if response.status_code == 401 and self.is_auto_auth:
                 await self.get_token()
                 response = await client.request(method=method, url=url, headers=self.headers, json=data)
@@ -62,20 +49,30 @@ class MarzbanAdapter:
                 return {"detail": response.text}
 
     async def get_inbounds(self) -> Dict:
+        """دریافت لیست Inbound های فعال از مرزبان"""
         return await self._make_request("GET", "/inbounds")
 
     async def create_user(self, username: str, expire: int, data_limit: int, proxies: Dict = None) -> Dict:
+        """ساخت کاربر با شناسایی هوشمند Inbound ها"""
         if proxies is None or not proxies:
             proxies = {"vless": {}, "vmess": {}, "trojan": {}}
 
+        # دریافت خودکار اینباندها برای جلوگیری از ارور 400 مرزبان
         inbounds_data = await self.get_inbounds()
         inbounds = {}
+        
         if isinstance(inbounds_data, dict) and "detail" not in inbounds_data:
             for proto, list_inbounds in inbounds_data.items():
                 if proto in proxies:
                     inbounds[proto] = [ib["tag"] for ib in list_inbounds]
         
-        payload = {"username": username, "proxies": proxies, "inbounds": inbounds, "expire": expire, "data_limit": data_limit}
+        payload = {
+            "username": username,
+            "proxies": proxies,
+            "inbounds": inbounds,
+            "expire": expire,
+            "data_limit": data_limit
+        }
         return await self._make_request("POST", "/user", data=payload)
 
     async def get_user(self, username: str) -> Dict:
