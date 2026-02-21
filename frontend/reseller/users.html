@@ -12,9 +12,10 @@
 
 <nav class="navbar">
     <a href="index.html" class="nav-brand">GUARDINO</a>
-    <div class="nav-menu">
+    <div class="nav-menu" id="navMenu">
         <a href="index.html">🏠 داشبورد</a>
         <a href="users.html" style="color: var(--primary);">👥 مدیریت کاربران</a>
+        <a href="#" onclick="logout()">🚪 خروج</a>
     </div>
 </nav>
 
@@ -61,14 +62,45 @@
         </div>
     </div>
 
-</div>
+    <div class="section-title" style="margin-top: 40px;">📋 لیست اشتراک‌های شما</div>
+    <div class="card" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: right; min-width: 600px;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border); color: var(--text); opacity: 0.8;">
+                    <th style="padding: 12px 10px;">نام کاربری</th>
+                    <th>وضعیت</th>
+                    <th>حجم کل</th>
+                    <th>انقضا</th>
+                    <th>لینک ساب</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                <tr><td colspan="5" style="text-align:center; padding: 20px; opacity: 0.6;">در حال بارگذاری اطلاعات...</td></tr>
+            </tbody>
+        </table>
+    </div>
 
-<script src="../assets/js/app.js"></script>
+</div> <script src="../assets/js/app.js"></script>
 <script>
+    // --- 1. اعتبارسنجی اولیه و منوی نماینده ارشد ---
     const token = localStorage.getItem("guardino_token");
     if (!token) window.location.href = "login.html";
 
-    // 1. دریافت لیست سرورهای مجاز برای این نماینده از پایتون
+    const userRole = localStorage.getItem("reseller_role");
+    if (userRole === "master") {
+        const navMenu = document.getElementById("navMenu");
+        const subResellerLink = document.createElement("a");
+        subResellerLink.href = "sub-resellers.html"; 
+        subResellerLink.innerHTML = "🏢 زیرمجموعه‌های من";
+        navMenu.insertBefore(subResellerLink, navMenu.lastElementChild);
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "login.html";
+    }
+
+    // --- 2. دریافت سرورهای مجاز زمان لود صفحه ---
     async function loadAvailableNodes() {
         try {
             const response = await fetch("http://localhost:8000/api/v1/nodes/list", {
@@ -77,11 +109,10 @@
             const data = await response.json();
             
             const container = document.getElementById("nodesContainer");
-            container.innerHTML = ""; // پاک کردن متن "در حال دریافت..."
+            container.innerHTML = ""; 
 
             if(data.nodes && data.nodes.length > 0) {
                 data.nodes.forEach(node => {
-                    // ساخت چک‌باکس برای هر سرور
                     container.innerHTML += `
                         <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; background: var(--card); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);">
                             <input type="checkbox" name="selectedNodes" value="${node.id}" checked>
@@ -98,11 +129,10 @@
         }
     }
 
-    // 2. هندل کردن فرم ساخت کاربر (ارسال به موتور پایتون)
+    // --- 3. ارسال فرم ساخت کاربر ---
     document.getElementById('createUserForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        // جمع‌آوری آیدی سرورهایی که تیک خورده‌اند
         const checkboxes = document.querySelectorAll('input[name="selectedNodes"]:checked');
         const nodeIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
         
@@ -137,15 +167,16 @@
             if (response.ok) {
                 showToast("کاربر با موفقیت در شبکه‌ها ساخته شد!", "success");
                 
-                // نمایش کارت لینک ساب
                 document.getElementById('resultCard').style.display = 'block';
                 document.getElementById('masterSubLink').value = data.sub_link;
                 document.getElementById('costDisplay').innerText = `مبلغ کسر شده از کیف پول: ${data.total_cost.toLocaleString()} تومان`;
                 
-                // آپدیت موجودی ذخیره شده
                 let currentBal = parseInt(localStorage.getItem("reseller_balance"));
                 localStorage.setItem("reseller_balance", currentBal - data.total_cost);
 
+                // آپدیت خودکار لیست کاربران
+                loadUsersList();
+                document.getElementById('createUserForm').reset();
             } else {
                 showToast(data.detail || "خطا در ساخت کاربر", "danger");
             }
@@ -157,21 +188,64 @@
         }
     });
 
-    // تابع کمکی برای کپی کردن لینک ساب
     function copyMasterLink() {
         const link = document.getElementById('masterSubLink').value;
-        navigator.clipboard.writeText(link).then(() => {
-            showToast("✅ لینک ساب گاردینو کپی شد!");
-        });
+        copyToClipboard(link);
     }
 
-    // تولید نام کاربری رندوم
     function genU() {
         document.getElementById('username').value = "user_" + Math.random().toString(36).substr(2, 6);
     }
 
-    // اجرای تابع لود سرورها هنگام باز شدن صفحه
+    // --- 4. دریافت و نمایش لیست کاربران ---
+    async function loadUsersList() {
+        try {
+            const response = await fetch("http://localhost:8000/api/v1/users/list", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            const tbody = document.getElementById("usersTableBody");
+            tbody.innerHTML = "";
+
+            if (data.users && data.users.length > 0) {
+                data.users.forEach(user => {
+                    let statusHtml = "";
+                    if (user.status === "active") statusHtml = `<span style="background: #10b98120; color: #10b981; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">🟢 فعال</span>`;
+                    else if (user.status === "disabled") statusHtml = `<span style="background: #ef444420; color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">🔴 مسدود</span>`;
+                    else statusHtml = `<span style="background: #f59e0b20; color: #f59e0b; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">⏳ منقضی</span>`;
+
+                    let expireText = user.expire_date ? new Date(user.expire_date).toLocaleDateString('fa-IR') : "نامحدود";
+
+                    tbody.innerHTML += `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 12px 10px; font-weight: bold; color: var(--primary);">${user.username}</td>
+                            <td>${statusHtml}</td>
+                            <td>${user.purchased_gb} گیگ</td>
+                            <td><span style="direction: ltr; display: inline-block;">${expireText}</span></td>
+                            <td>
+                                <button onclick="copyToClipboard('${user.sub_link}')" class="btn-main btn-gray" style="padding: 4px 10px; font-size: 0.8rem; width: auto; margin: 0;">🔗 کپی</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">هیچ کاربری یافت نشد.</td></tr>`;
+            }
+        } catch (e) {
+            document.getElementById("usersTableBody").innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: red;">خطا در دریافت اطلاعات.</td></tr>`;
+        }
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            if(typeof showToast === "function") showToast("✅ لینک کپی شد!", "success");
+            else alert("✅ لینک کپی شد!");
+        });
+    }
+
+    // اجرای توابع در زمان لود اولیه
     loadAvailableNodes();
+    loadUsersList();
 </script>
 </body>
 </html>
