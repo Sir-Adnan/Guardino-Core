@@ -13,6 +13,7 @@ from app.schemas.user import UserCreateRequest, UserCreateResponse
 from app.services.node_factory import NodeFactory
 from app.api.deps import get_current_reseller
 from app.core.config import settings
+
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 @router.post("/create", response_model=UserCreateResponse)
@@ -43,7 +44,6 @@ async def create_multi_node_user(
     valid_nodes = []
     
     for n_id in request.node_ids:
-        # اصلاح شد: NodeAllocation.reseller_id صحیح است
         alloc_query = await db.execute(
             select(NodeAllocation).options(selectinload(NodeAllocation.node)).where(
                 NodeAllocation.reseller_id == current_reseller.id,
@@ -106,7 +106,6 @@ async def create_multi_node_user(
     expire_dt = datetime.utcnow() + timedelta(days=request.expire_days) if request.expire_days > 0 else None
     sub_token = uuid.uuid4().hex
 
-    # اصلاح شد: reseller_id صحیح است
     new_user = GuardinoUser(
         reseller_id=current_reseller.id,
         username=request.username,
@@ -127,7 +126,6 @@ async def create_multi_node_user(
         )
         db.add(sub_acc)
 
-    # اصلاح شد: reseller_id صحیح است
     log = TransactionLog(
         reseller_id=current_reseller.id,
         amount=-total_cost,
@@ -135,7 +133,6 @@ async def create_multi_node_user(
         description=f"ساخت کاربر {request.username} روی {len(valid_nodes)} سرور"
     )
     db.add(log)
-
     await db.commit()
 
     master_sub_link = f"{settings.SYSTEM_DOMAIN}/sub/{sub_token}"
@@ -146,13 +143,14 @@ async def create_multi_node_user(
         total_cost=total_cost,
         sub_link=master_sub_link
     )
-    @router.get("/list")
+
+# --- اضافه شدن API لیست کاربران ---
+@router.get("/list")
 async def get_reseller_users(
     current_reseller: Reseller = Depends(get_current_reseller),
     db: AsyncSession = Depends(get_db)
 ):
     """دریافت لیست کاربران ساخته شده توسط این نماینده"""
-    # واکشی کاربران بر اساس جدیدترین تاریخ ساخت
     query = await db.execute(
         select(GuardinoUser)
         .where(GuardinoUser.reseller_id == current_reseller.id)
@@ -166,7 +164,7 @@ async def get_reseller_users(
             "id": u.id,
             "username": u.username,
             "status": u.status,
-            "purchased_gb": round(u.purchased_data_limit / 1073741824, 2), # تبدیل بایت به گیگابایت
+            "purchased_gb": round(u.purchased_data_limit / 1073741824, 2),
             "expire_date": u.expire_date.isoformat() if u.expire_date else None,
             "sub_link": f"{settings.SYSTEM_DOMAIN}/sub/{u.sub_token}"
         })
