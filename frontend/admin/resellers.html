@@ -24,135 +24,196 @@
 </nav>
 
 <div class="container" style="padding-top: 30px;">
-    <div class="section-title">👤 ساخت نماینده فروش جدید (ارشد / خرده‌فروش)</div>
-    <div class="card" style="border-left: 4px solid #8b5cf6;">
-        <form id="addResellerForm">
-            <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="form-group">
-                    <label class="form-label">نام کاربری نماینده</label>
-                    <input type="text" id="rUsername" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">رمز عبور امن</label>
-                    <input type="password" id="rPassword" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">حق اشتراک روزانه پنل (تومان)</label>
-                    <input type="number" id="rDailyFee" class="form-control" value="0" placeholder="مثلا 30000">
-                </div>
+    
+    <button class="btn-main btn-auto-pill" onclick="toggleSection('addForm', 'block')" style="background: #8b5cf6;">➕ ثبت نماینده جدید</button>
 
+    <div class="card card-bordered" id="addForm" style="display: none; border-color: #8b5cf6;">
+        <h3 class="section-title" style="margin-top: 0;">👤 مشخصات نماینده جدید</h3>
+        <form id="addResellerForm">
+            <div class="grid-create">
+                <div class="form-group"><label class="form-label">نام کاربری ورود</label><input type="text" id="rUsername" class="form-control" required></div>
+                <div class="form-group"><label class="form-label">رمز عبور ورود</label><input type="password" id="rPassword" class="form-control" required></div>
+                <div class="form-group"><label class="form-label">قیمت هر گیگ (تومان)</label><input type="number" id="rBasePrice" class="form-control" value="1000" required></div>
                 <div class="form-group">
-                    <label class="form-label">دسترسی زیرمجموعه‌گیری</label>
+                    <label class="form-label">نوع دسترسی</label>
                     <select id="rCanSub" class="form-control">
-                        <option value="true">نماینده ارشد (Master) - می‌تواند نماینده بسازد</option>
-                        <option value="false">خرده‌فروش (Sub) - فقط ساخت اکانت VPN</option>
+                        <option value="true">نماینده ارشد (Master)</option>
+                        <option value="false">خرده‌فروش (Sub)</option>
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">قیمت پایه هر گیگ (تک سرور)</label>
-                    <input type="number" id="rBasePrice" class="form-control" value="1000" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">قیمت پایه هر گیگ (ترکیبی / مستر لینک)</label>
-                    <input type="number" id="rMasterPrice" class="form-control" value="2000" required>
-                </div>
             </div>
-
-            <button type="submit" class="btn-main" style="background: #8b5cf6; width: 100%; margin-top: 20px;">ثبت نماینده در سیستم</button>
+            <div class="flex-actions">
+                <button type="submit" id="addBtn" class="btn-main btn-w-150" style="background: #8b5cf6;">ثبت در سیستم</button>
+                <button type="button" class="btn-main btn-w-150 btn-gray" onclick="toggleSection('addForm', 'block')">بستن</button>
+            </div>
         </form>
     </div>
 
-    <div class="section-title" style="margin-top: 40px;">🔗 تخصیص سرور به نماینده</div>
-    <div class="card" style="border-left: 4px solid #10b981;">
+    <button class="btn-main btn-auto-pill" onclick="toggleSection('allocForm', 'block')" style="background: #10b981; margin-right: 10px;">🔗 تخصیص سرور</button>
+
+    <div class="card card-bordered" id="allocForm" style="display: none; border-color: #10b981;">
+        <h3 class="section-title" style="margin-top: 0;">🔗 تخصیص سرور به نماینده</h3>
         <form id="allocateNodeForm">
-            <div class="smart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="form-group">
-                    <label class="form-label">آیدی نماینده (Reseller ID)</label>
-                    <input type="number" id="allocResellerId" class="form-control" placeholder="مثلا: 2" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">آیدی سرور (Node ID)</label>
-                    <input type="number" id="allocNodeId" class="form-control" placeholder="مثلا: 1" required>
-                </div>
+            <div class="grid-create">
+                <div class="form-group"><label class="form-label">آیدی نماینده (ID)</label><input type="number" id="allocResellerId" class="form-control" required></div>
+                <div class="form-group"><label class="form-label">آیدی سرور (Node ID)</label><input type="number" id="allocNodeId" class="form-control" required></div>
             </div>
-            <button type="submit" class="btn-main" style="background: #10b981; width: 100%; margin-top: 15px;">➕ تخصیص دسترسی سرور</button>
+            <div class="flex-actions">
+                <button type="submit" id="allocBtn" class="btn-main btn-w-150" style="background: #10b981;">تخصیص دسترسی</button>
+                <button type="button" class="btn-main btn-w-150 btn-gray" onclick="toggleSection('allocForm', 'block')">بستن</button>
+            </div>
         </form>
     </div>
+
+    <h3 class="section-title mt-4">👥 مدیریت نمایندگان سیستم</h3>
+    <div id="resellersContainer">
+        <p style="text-align: center; opacity: 0.6;">در حال بارگذاری...</p>
+    </div>
+
 </div>
 
+<script src="../assets/js/app.js"></script>
 <script>
-    // اعتبارسنجی
     const token = localStorage.getItem("guardino_token");
     if (!token) window.location.href = "login.html";
 
-    function logout() {
-        localStorage.clear();
-        window.location.href = "login.html";
+    function logout() { localStorage.clear(); window.location.href = "login.html"; }
+
+    function toggleSection(id, displayType = 'block') {
+        let el = document.getElementById(id);
+        if(el) el.style.display = (el.style.display === 'none' || el.style.display === '') ? displayType : 'none';
+    }
+
+    // لود کردن لیست نمایندگان با کارت‌های زیبا
+    async function loadResellers() {
+        try {
+            const res = await fetch("/api/v1/resellers/list", { headers: { "Authorization": `Bearer ${token}` } });
+            const data = await res.json();
+            const container = document.getElementById("resellersContainer");
+            container.innerHTML = "";
+
+            if(data.resellers && data.resellers.length > 0) {
+                data.resellers.forEach(r => {
+                    const badge_color = r.status === 'active' ? '#10b981' : '#ef4444';
+                    const badge_bg = r.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)';
+                    const badge_text = r.status === 'active' ? 'فعال' : 'مسدود';
+                    
+                    container.innerHTML += `
+                    <div class="mz-card" style="border-left: 4px solid #3b82f6;">
+                        <div class="mz-col-user flex-1-5">
+                            <span class="mz-dot" style="background: ${badge_color}; box-shadow: 0 0 8px ${badge_color};"></span>
+                            <span class="mz-name text-xl">${r.username} <span style="font-size: 0.7rem; opacity: 0.6;">(ID: ${r.id})</span></span>
+                            <span class="mz-badge" style="color: ${badge_color}; background: ${badge_bg}; margin-right: 10px;">${badge_text}</span>
+                        </div>
+                        
+                        <div class="mz-col-status">
+                            <div class="font-black text-xl text-primary text-left" id="bal-${r.id}">${r.balance.toLocaleString()} T</div>
+                            <div class="mz-expire">موجودی کیف پول</div>
+                        </div>
+
+                        <div class="mz-col-status">
+                            <div class="font-black text-lg text-left">${r.price.toLocaleString()} T</div>
+                            <div class="mz-expire">تعرفه پایه</div>
+                        </div>
+
+                        <div class="mz-col-actions">
+                            <button onclick="toggleSection('charge-${r.id}', 'flex')" class="mz-btn" style="background:rgba(16,185,129,0.1); color:#10b981;" title="شارژ مالی">💳</button>
+                        </div>
+
+                        <div id="charge-${r.id}" class="form-collapse">
+                            <form onsubmit="handleCharge(event, ${r.id})" class="form-row">
+                                <div class="form-col-1">
+                                    <label class="form-label">نوع تراکنش</label>
+                                    <select id="ctype-${r.id}" class="form-control" style="border-color:#10b981;">
+                                        <option value="add">➕ افزایش شارژ</option>
+                                        <option value="sub">➖ کسر موجودی</option>
+                                    </select>
+                                </div>
+                                <div class="form-col-1">
+                                    <label class="form-label">مبلغ (تومان)</label>
+                                    <input type="number" id="camt-${r.id}" class="form-control" required min="1">
+                                </div>
+                                <div class="form-col-2">
+                                    <label class="form-label">توضیحات</label>
+                                    <input type="text" id="cdesc-${r.id}" class="form-control" placeholder="بابت...">
+                                </div>
+                                <button type="submit" id="cbtn-${r.id}" class="btn-main btn-auto btn-green">ثبت تراکنش</button>
+                            </form>
+                        </div>
+                    </div>
+                    `;
+                });
+            } else { 
+                container.innerHTML = `<div class="card" style="text-align:center;">هیچ نماینده‌ای یافت نشد.</div>`; 
+            }
+        } catch (e) { container.innerHTML = "<p>خطا در دریافت لیست</p>"; }
     }
 
     // ارسال فرم ساخت نماینده
     document.getElementById('addResellerForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        const btn = document.getElementById('addBtn'); btn.disabled = true; btn.innerText = "⏳...";
         const payload = {
             username: document.getElementById('rUsername').value,
             password: document.getElementById('rPassword').value,
-            daily_subscription_fee: parseInt(document.getElementById('rDailyFee').value) || 0,
+            daily_subscription_fee: 0,
             base_price_per_gb: parseInt(document.getElementById('rBasePrice').value),
-            base_price_master_sub: parseInt(document.getElementById('rMasterPrice').value),
+            base_price_master_sub: parseInt(document.getElementById('rBasePrice').value),
             can_create_sub: document.getElementById('rCanSub').value === "true"
         };
-
         try {
             const res = await fetch("/api/v1/resellers/create", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` 
-                },
-                body: JSON.stringify(payload)
+                method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            if (res.ok) {
-                alert("✅ نماینده با موفقیت ساخته شد!");
-                document.getElementById('addResellerForm').reset();
-            } else {
-                alert(data.detail || "خطا در ثبت نماینده");
-            }
-        } catch (err) {
-            alert("خطا در ارتباط با سرور مرکزی.");
-        }
+            if (res.ok) { showToast("✅ نماینده ساخته شد!"); loadResellers(); document.getElementById('addResellerForm').reset(); toggleSection('addForm'); } 
+            else { const d = await res.json(); showToast(d.detail || "خطا", "danger"); }
+        } catch (err) { showToast("خطا در ارتباط", "danger"); }
+        finally { btn.disabled = false; btn.innerText = "ثبت در سیستم"; }
     });
 
     // ارسال فرم تخصیص نود
     document.getElementById('allocateNodeForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const resellerId = document.getElementById('allocResellerId').value;
+        const btn = document.getElementById('allocBtn'); btn.disabled = true; btn.innerText = "⏳...";
+        const rId = document.getElementById('allocResellerId').value;
+        try {
+            const res = await fetch(`/api/v1/resellers/${rId}/allocate-node`, {
+                method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify({ node_id: parseInt(document.getElementById('allocNodeId').value) })
+            });
+            if (res.ok) { showToast("✅ سرور تخصیص داده شد!"); document.getElementById('allocateNodeForm').reset(); toggleSection('allocForm'); } 
+            else { const d = await res.json(); showToast(d.detail || "خطا", "danger"); }
+        } catch (err) { showToast("خطا در ارتباط", "danger"); }
+        finally { btn.disabled = false; btn.innerText = "تخصیص دسترسی"; }
+    });
+
+    // عملیات شارژ و کسر کیف پول
+    async function handleCharge(e, id) {
+        e.preventDefault();
+        const btn = document.getElementById(`cbtn-${id}`); btn.disabled = true; btn.innerText = "⏳...";
         const payload = {
-            node_id: parseInt(document.getElementById('allocNodeId').value)
+            type: document.getElementById(`ctype-${id}`).value,
+            amount: parseInt(document.getElementById(`camt-${id}`).value),
+            description: document.getElementById(`cdesc-${id}`).value
         };
 
         try {
-            const res = await fetch(`/api/v1/resellers/${resellerId}/allocate-node`, {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` 
-                },
-                body: JSON.stringify(payload)
+            const res = await fetch(`/api/v1/resellers/${id}/charge`, {
+                method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (res.ok) {
-                alert("✅ سرور با موفقیت به نماینده تخصیص داده شد!");
-                document.getElementById('allocateNodeForm').reset();
-            } else {
-                alert(data.detail || "خطا در تخصیص سرور");
-            }
-        } catch (err) {
-            alert("خطا در ارتباط با سرور مرکزی.");
-        }
-    });
+                showToast("✅ موجودی آپدیت شد!");
+                document.getElementById(`bal-${id}`).innerText = data.new_balance.toLocaleString() + " T";
+                document.getElementById(`camt-${id}`).value = "";
+                document.getElementById(`cdesc-${id}`).value = "";
+                toggleSection(`charge-${id}`); // بستن فرم
+            } else { showToast(data.detail || "خطا در تراکنش", "danger"); }
+        } catch (err) { showToast("خطا در ارتباط", "danger"); }
+        finally { btn.disabled = false; btn.innerText = "ثبت تراکنش"; }
+    }
+
+    loadResellers();
 </script>
 </body>
 </html>
