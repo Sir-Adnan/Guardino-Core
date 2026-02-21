@@ -146,3 +146,29 @@ async def create_multi_node_user(
         total_cost=total_cost,
         sub_link=master_sub_link
     )
+    @router.get("/list")
+async def get_reseller_users(
+    current_reseller: Reseller = Depends(get_current_reseller),
+    db: AsyncSession = Depends(get_db)
+):
+    """دریافت لیست کاربران ساخته شده توسط این نماینده"""
+    # واکشی کاربران بر اساس جدیدترین تاریخ ساخت
+    query = await db.execute(
+        select(GuardinoUser)
+        .where(GuardinoUser.reseller_id == current_reseller.id)
+        .order_by(GuardinoUser.created_at.desc())
+    )
+    users = query.scalars().all()
+    
+    result = []
+    for u in users:
+        result.append({
+            "id": u.id,
+            "username": u.username,
+            "status": u.status,
+            "purchased_gb": round(u.purchased_data_limit / 1073741824, 2), # تبدیل بایت به گیگابایت
+            "expire_date": u.expire_date.isoformat() if u.expire_date else None,
+            "sub_link": f"{settings.SYSTEM_DOMAIN}/sub/{u.sub_token}"
+        })
+        
+    return {"users": result}
