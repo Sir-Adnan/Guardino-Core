@@ -1,8 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import users 
-from app.api import users, subscriptions
+from app.api import users, subscriptions  # ایمپورت صحیح و یکباره
 
 # 1. ابتدا هسته API را می‌سازیم
 app = FastAPI(
@@ -10,9 +9,6 @@ app = FastAPI(
     description="Enterprise Multi-Panel VPN Aggregator and Billing System",
     version="1.0.0"
 )
-
-app.include_router(users.router)
-app.include_router(subscriptions.router)
 
 # 2. تنظیمات CORS
 app.add_middleware(
@@ -23,8 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 3. حالا روترها را متصل می‌کنیم
+# 3. اتصال روترها (فقط یک‌بار)
 app.include_router(users.router)
+app.include_router(subscriptions.router)
 
 @app.get("/")
 async def root():
